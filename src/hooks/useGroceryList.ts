@@ -1,9 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useGroceryStore } from "@/store/groceryStore";
 import { GroceryItem, GroceryItemCreate } from "@/types/grocery";
 import { useGroceryFilter } from "@/hooks/useGroceryFilter";
 import { categories } from "@/models/categories";
 import { toast } from "./use-toast";
+import {
+  useGroceryItems,
+  useAddGroceryItem,
+  useUpdateGroceryItem,
+  useDeleteGroceryItem,
+} from "@/hooks/useGroceryItems";
 
 export function useGroceryList() {
   const {
@@ -15,20 +21,16 @@ export function useGroceryList() {
     setItemToEdit,
     itemToDelete,
     setItemToDelete,
-    groceryItems,
-    fetchItems,
-    addItem,
-    updateItem,
-    deleteItem,
-    isLoading,
-    setIsLoading,
   } = useGroceryStore();
 
   const filter = useGroceryFilter();
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+  const { data: groceryItems = [], isLoading } = useGroceryItems();
+  const [isMutating, setIsMutating] = useState(false);
+
+  const addMutation = useAddGroceryItem();
+  const updateMutation = useUpdateGroceryItem();
+  const deleteMutation = useDeleteGroceryItem();
 
   const filteredItems = useMemo(() => {
     return groceryItems.filter(item => {
@@ -59,9 +61,9 @@ export function useGroceryList() {
   );
 
   const handleAddItem = async (newItem: GroceryItemCreate) => {
-    setIsLoading(true);
-    await addItem(newItem);
-    setIsLoading(false);
+    setIsMutating(true);
+    await addMutation.mutateAsync(newItem);
+    setIsMutating(false);
     setAddDialogOpen(false);
     toast({
       title: "Item added!",
@@ -71,10 +73,10 @@ export function useGroceryList() {
   };
 
   const handleEditItem = async (updatedItem: GroceryItem) => {
-    setIsLoading(true);
-    await updateItem(updatedItem);
-    setIsLoading(false);
+    setIsMutating(true);
+    await updateMutation.mutateAsync(updatedItem);
     setItemToEdit(null);
+    setIsMutating(false);
     toast({
       title: "Item updated!",
       description: "Changes saved.",
@@ -84,9 +86,9 @@ export function useGroceryList() {
 
   const handleDeleteItem = async () => {
     if (!itemToDelete) return;
-    setIsLoading(true);
-    await deleteItem(itemToDelete.id);
-    setIsLoading(false);
+    setIsMutating(true);
+    await deleteMutation.mutateAsync(itemToDelete.id);
+    setIsMutating(false);
     setItemToDelete(null);
     toast({
       title: "Item deleted!",
@@ -105,7 +107,7 @@ export function useGroceryList() {
     setItemToEdit,
     itemToDelete,
     setItemToDelete,
-    isLoading,
+    isLoading: isLoading || isMutating,
     filter,
     visibleCategories,
     groupedItems,
